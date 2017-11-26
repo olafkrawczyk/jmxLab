@@ -5,15 +5,30 @@
  */
 package com.pwrlab.jmxlab;
 
+import java.lang.management.ManagementFactory;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
+
 /**
  *
  * @author Olaf
  */
-public class MainWindow extends javax.swing.JFrame {
+public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
 
     /**
      * Creates new form MainWindow
      */
+    private String wordsMap;
+    private Map<String, String> parsedMap = new HashMap<>();
+    
     public MainWindow() {
         initComponents();
     }
@@ -27,17 +42,31 @@ public class MainWindow extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jScrollPane1 = new javax.swing.JScrollPane();
+        jTextArea1 = new javax.swing.JTextArea();
+
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("Editor");
+
+        jTextArea1.setColumns(20);
+        jTextArea1.setRows(5);
+        jScrollPane1.setViewportView(jTextArea1);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 380, Short.MAX_VALUE)
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 278, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         pack();
@@ -71,13 +100,73 @@ public class MainWindow extends javax.swing.JFrame {
         //</editor-fold>
 
         /* Create and display the form */
+        
+        
+        MainWindow window = new MainWindow();
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new MainWindow().setVisible(true);
+                window.setVisible(true);
             }
         });
+        
+        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        try {
+            ObjectName name = new ObjectName("jmxLab:name=Editor");
+            try {
+                mbs.registerMBean((MainWindowMBean)window, name);
+            } catch (InstanceAlreadyExistsException ex) {
+                Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (MBeanRegistrationException ex) {
+                Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (NotCompliantMBeanException ex) {
+                Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } catch (MalformedObjectNameException ex) {
+            Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JTextArea jTextArea1;
     // End of variables declaration//GEN-END:variables
+
+    @Override
+    public void setWordsMap(String wordsMap) {
+        this.wordsMap = wordsMap;
+        parseWordsMap();
+    }
+
+    @Override
+    public String getWordsMap() {
+        return this.wordsMap;
+    }
+
+    @Override
+    public boolean checkIfForbiddenWords() {
+        for (String word : parsedMap.keySet()) {
+            if(jTextArea1.getText().toLowerCase().contains(word.toLowerCase()))
+                return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void replaceForbiddenWords() {
+        String result = jTextArea1.getText();
+        for (String word : parsedMap.keySet()) {
+            result = result.replaceAll(word, (String)parsedMap.get(word));
+        }
+        jTextArea1.setText(result);
+    }
+
+    private void parseWordsMap() {
+        //format word1:replacment1;word2:replacement2;...wordn:replacementn
+        String[] wordPairs = this.wordsMap.split(";");
+        for(int i = 0; i < wordPairs.length; i++){
+            String[] pair = wordPairs[i].split(":");
+            parsedMap.put(pair[0], pair[1]);
+        }
+    }
 }
