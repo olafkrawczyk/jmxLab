@@ -39,6 +39,8 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean, N
     private NotificationBroadcasterSupport broadcaster
             = new NotificationBroadcasterSupport();
     private long notificationSequence = 0;
+    
+    private boolean notificationSent = false;
 
     public MainWindow() {
         initComponents();
@@ -180,6 +182,7 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean, N
             result = result.replaceAll(word, (String) parsedMap.get(word));
         }
         jTextArea1.setText(result);
+        notificationSent = false;
     }
 
     private void parseWordsMap() {
@@ -192,7 +195,8 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean, N
     }
     
     private void notifyForbiddenWords() {
-        if(checkIfForbiddenWords()) {
+        if(checkIfForbiddenWords() && !notificationSent) {
+            notificationSent = true;
             broadcaster.sendNotification(
                new Notification("com.pwrlab.jmxlab.forbiddenWord", this, ++notificationSequence, "Forbidden word found in input")
             );
