@@ -11,26 +11,38 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.management.InstanceAlreadyExistsException;
+import javax.management.ListenerNotFoundException;
+import javax.management.MBeanNotificationInfo;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
+import javax.management.Notification;
+import javax.management.NotificationBroadcaster;
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
 /**
  *
  * @author Olaf
  */
-public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
+public class MainWindow extends javax.swing.JFrame implements MainWindowMBean, NotificationBroadcaster {
 
     /**
      * Creates new form MainWindow
      */
     private String wordsMap;
     private Map<String, String> parsedMap = new HashMap<>();
-    
+
+    private NotificationBroadcasterSupport broadcaster
+            = new NotificationBroadcasterSupport();
+    private long notificationSequence = 0;
+
     public MainWindow() {
         initComponents();
+        setWordsMap("slowo1:slowo2");
     }
 
     /**
@@ -49,7 +61,13 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
         setTitle("Editor");
 
         jTextArea1.setColumns(20);
+        jTextArea1.setLineWrap(true);
         jTextArea1.setRows(5);
+        jTextArea1.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                jTextArea1KeyTyped(evt);
+            }
+        });
         jScrollPane1.setViewportView(jTextArea1);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -71,6 +89,10 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void jTextArea1KeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTextArea1KeyTyped
+        notifyForbiddenWords();
+    }//GEN-LAST:event_jTextArea1KeyTyped
 
     /**
      * @param args the command line arguments
@@ -100,20 +122,18 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
         //</editor-fold>
 
         /* Create and display the form */
-        
-        
         MainWindow window = new MainWindow();
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 window.setVisible(true);
             }
         });
-        
+
         MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         try {
             ObjectName name = new ObjectName("jmxLab:name=Editor");
             try {
-                mbs.registerMBean((MainWindowMBean)window, name);
+                mbs.registerMBean((MainWindowMBean) window, name);
             } catch (InstanceAlreadyExistsException ex) {
                 Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
             } catch (MBeanRegistrationException ex) {
@@ -146,8 +166,9 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
     @Override
     public boolean checkIfForbiddenWords() {
         for (String word : parsedMap.keySet()) {
-            if(jTextArea1.getText().toLowerCase().contains(word.toLowerCase()))
+            if (jTextArea1.getText().toLowerCase().contains(word.toLowerCase())) {
                 return true;
+            }
         }
         return false;
     }
@@ -156,7 +177,7 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
     public void replaceForbiddenWords() {
         String result = jTextArea1.getText();
         for (String word : parsedMap.keySet()) {
-            result = result.replaceAll(word, (String)parsedMap.get(word));
+            result = result.replaceAll(word, (String) parsedMap.get(word));
         }
         jTextArea1.setText(result);
     }
@@ -164,9 +185,38 @@ public class MainWindow extends javax.swing.JFrame implements MainWindowMBean{
     private void parseWordsMap() {
         //format word1:replacment1;word2:replacement2;...wordn:replacementn
         String[] wordPairs = this.wordsMap.split(";");
-        for(int i = 0; i < wordPairs.length; i++){
+        for (int i = 0; i < wordPairs.length; i++) {
             String[] pair = wordPairs[i].split(":");
             parsedMap.put(pair[0], pair[1]);
         }
+    }
+    
+    private void notifyForbiddenWords() {
+        if(checkIfForbiddenWords()) {
+            broadcaster.sendNotification(
+               new Notification("com.pwrlab.jmxlab.forbiddenWord", this, ++notificationSequence, "Forbidden word found in input")
+            );
+        }
+    }
+
+    @Override
+    public void addNotificationListener(NotificationListener listener, NotificationFilter filter, Object handback) throws IllegalArgumentException {
+        broadcaster.addNotificationListener(listener, filter, handback);
+    }
+
+    @Override
+    public void removeNotificationListener(NotificationListener listener) throws ListenerNotFoundException {
+        broadcaster.removeNotificationListener(listener);
+    }
+
+    @Override
+    public MBeanNotificationInfo[] getNotificationInfo() {
+        return new MBeanNotificationInfo[]{
+            new MBeanNotificationInfo(
+            new String[]{"com.pwrlab.jmxlab.forbiddenWords"}, // notif. types
+            Notification.class.getName(), // notif. class
+            "Forbidden words notification" // description
+            )
+        };
     }
 }
